@@ -130,6 +130,7 @@ if not df_sales.empty:
         resumen_semanal = df_mes_f.groupby('SEMANA')['Venta Neta Real'].sum().reset_index()
         resumen_semanal = resumen_semanal.sort_values('SEMANA')
 
+        # Visualización de gráfico
         fig_sem = px.pie(
             resumen_semanal, 
             values='Venta Neta Real', 
@@ -140,18 +141,22 @@ if not df_sales.empty:
         )
         st.plotly_chart(fig_sem, use_container_width=True)
         
-        st.markdown(f"#### Listado de Ventas en {mes_f}")
-        st.dataframe(df_mes_f[['Cliente', 'SEMANA', 'Venta Neta Real']], use_container_width=True)
-
+        # Tabla resumen por semana solicitada
+        st.markdown(f"#### Resumen de Totales por Semana en {mes_f}")
+        st.dataframe(resumen_semanal, use_container_width=True)
+        
     # --- MÓDULO 3: RANKING DE CLIENTES ---
     elif st.session_state.modulo_activo == "Clientes":
         st.subheader("Top Clientes por Volumen de Compra")
         
+        # Agrupación por cliente (totalizado)
         ranking = df_sales.groupby('Cliente')['Venta Neta Real'].sum().reset_index()
-        ranking = ranking.sort_values(by='Venta Neta Real', ascending=False).head(15)
+        ranking = ranking.sort_values(by='Venta Neta Real', ascending=False)
         
+        # Gráfico de los mejores 15
+        top_15 = ranking.head(15)
         fig_ranking = px.bar(
-            ranking, 
+            top_15, 
             y='Cliente', 
             x='Venta Neta Real',
             orientation='h',
@@ -161,6 +166,10 @@ if not df_sales.empty:
             color_continuous_scale='Blues'
         )
         st.plotly_chart(fig_ranking, use_container_width=True)
+
+        # Tabla totalizada por cliente solicitada
+        st.markdown("#### Tabla General de Clientes (Totalizados)")
+        st.dataframe(ranking, use_container_width=True)
 
 else:
     st.warning("⚠️ Sin datos para procesar. Verifica el acceso al Google Sheet.")
