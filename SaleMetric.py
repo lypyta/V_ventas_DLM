@@ -6,7 +6,7 @@ import requests
 
 # --- Configuración de la URL de Google Drive ---
 # 🚨 Reemplaza con tu enlace de "Publicar en la web" de Google Sheets (formato XLSX)
-GOOGLE_SALES_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRuj5CR1pOwlDvQY7-LRrCO4l_XaNNUfzUTnYXEO1zSuwG5W6s30HI6xhCuw-1m_w/pub?output=xlsx'
+GOOGLE_SALES_URL = 'https://docs.google.com/spreadsheets/d/1UNXW4LFYfc-P4eO-wVkav9FCSZtwC2Rw00cHZOQY5DI/export?format=xlsx'
 
 # --- Configuración de la página ---
 st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
