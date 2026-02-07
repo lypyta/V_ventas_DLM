@@ -93,7 +93,7 @@ if not df_sales.empty:
         total_acumulado = resumen_mensual['Venta Neta Real'].sum()
         promedio_mensual = resumen_mensual['Venta Neta Real'].mean()
         
-        # VENTA PROMEDIO DIARIA (Total / (meses transcurridos * días configurados))
+        # VENTA PROMEDIO DIARIA
         num_meses = len(resumen_mensual[resumen_mensual['Venta Neta Real'] > 0])
         promedio_diario_global = total_acumulado / (num_meses * dias_mes) if num_meses > 0 else 0
 
@@ -101,23 +101,32 @@ if not df_sales.empty:
         k1, k2, k3 = st.columns(3)
         k1.metric("Venta Total Acumulada", f"${total_acumulado:,.0f}")
         k2.metric("Promedio Mensual", f"${promedio_mensual:,.0f}")
-        k3.metric("Venta Promedio Diaria", f"${promedio_diario_global:,.0f}", help=f"Basado en {dias_mes} días por mes.")
+        k3.metric("Venta Promedio Diaria", f"${promedio_diario_global:,.0f}")
 
         st.markdown("#### Evolución Mensual")
         fig_mes = px.bar(
             resumen_mensual, 
             x='MES', 
             y='Venta Neta Real',
-            text_auto='.2s',
+            text_auto=True,
             title="Ingresos Consolidados por Mes",
             color_discrete_sequence=['#1E88E5']
         )
+        fig_mes.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
         st.plotly_chart(fig_mes, use_container_width=True)
 
         st.markdown("#### Detalle por Mes con Promedio Diario")
         # Agregar columna calculada a la tabla para mayor transparencia
         resumen_mensual['Promedio Diario'] = resumen_mensual['Venta Neta Real'] / dias_mes
-        st.dataframe(resumen_mensual, use_container_width=True)
+        
+        # Formato numérico para la tabla
+        st.dataframe(
+            resumen_mensual.style.format({
+                "Venta Neta Real": "${:,.0f}",
+                "Promedio Diario": "${:,.0f}"
+            }),
+            use_container_width=True
+        )
 
     # --- MÓDULO 2: DETALLE SEMANAL ---
     elif st.session_state.modulo_activo == "Semanal":
@@ -139,11 +148,15 @@ if not df_sales.empty:
             hole=0.4,
             color_discrete_sequence=px.colors.sequential.Blues_r
         )
+        fig_sem.update_traces(textinfo='percent+label', hovertemplate='Semana: %{label}<br>Venta: $%{value:,.0f}')
         st.plotly_chart(fig_sem, use_container_width=True)
         
-        # Tabla resumen por semana solicitada
+        # Tabla resumen por semana solicitada con formato
         st.markdown(f"#### Resumen de Totales por Semana en {mes_f}")
-        st.dataframe(resumen_semanal, use_container_width=True)
+        st.dataframe(
+            resumen_semanal.style.format({"Venta Neta Real": "${:,.0f}"}),
+            use_container_width=True
+        )
         
     # --- MÓDULO 3: RANKING DE CLIENTES ---
     elif st.session_state.modulo_activo == "Clientes":
@@ -161,15 +174,19 @@ if not df_sales.empty:
             x='Venta Neta Real',
             orientation='h',
             title="Top 15 Clientes (Venta Neta Acumulada)",
-            text_auto='.2s',
+            text_auto=True,
             color='Venta Neta Real',
             color_continuous_scale='Blues'
         )
+        fig_ranking.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
         st.plotly_chart(fig_ranking, use_container_width=True)
 
-        # Tabla totalizada por cliente solicitada
+        # Tabla totalizada por cliente solicitada con formato
         st.markdown("#### Tabla General de Clientes (Totalizados)")
-        st.dataframe(ranking, use_container_width=True)
+        st.dataframe(
+            ranking.style.format({"Venta Neta Real": "${:,.0f}"}),
+            use_container_width=True
+        )
 
 else:
     st.warning("⚠️ Sin datos para procesar. Verifica el acceso al Google Sheet.")
