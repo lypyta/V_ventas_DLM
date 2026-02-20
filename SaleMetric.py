@@ -148,9 +148,14 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     mes_f = st.selectbox("Selecciona un Mes:", meses_disponibles, key="sem_mes")
     
     df_mes_f = df_sales[df_sales['MES'] == mes_f]
+    
+    # NUEVO: Campo para visualizar el monto de ventas totales del mes seleccionado
+    total_mes_seleccionado = df_mes_f['VENTA NETA REAL'].sum()
+    st.metric(f"Venta Total de {mes_f}", f"${total_mes_seleccionado:,.0f}")
+    
     resumen_semanal = df_mes_f.groupby('SEMANA')['VENTA NETA REAL'].sum().reset_index().sort_values(by='VENTA NETA REAL', ascending=False)
     
-    st.plotly_chart(px.pie(resumen_semanal, values='VENTA NETA REAL', names='SEMANA', hole=0.4, title=f"Ventas en {mes_f}"), use_container_width=True)
+    st.plotly_chart(px.pie(resumen_semanal, values='VENTA NETA REAL', names='SEMANA', hole=0.4, title=f"Distribución de Ventas en {mes_f}"), use_container_width=True)
     st.markdown("#### Totales por Semana")
     st.dataframe(resumen_semanal.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
 
