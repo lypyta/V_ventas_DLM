@@ -4,14 +4,17 @@ import plotly.express as px
 import io
 import requests
 
-# --- Configuración de la URL de Google Drive ---
-# Conversión del enlace de edición a exportación directa (.xlsx)
+# --- Configuración de las URLs de Google Drive ---
+# 1. Hoja de Ventas General
 GOOGLE_SALES_URL = 'https://docs.google.com/spreadsheets/d/1UNXW4LFYfc-P4eO-wVkav9FCSZtwC2Rw00cHZOQY5DI/export?format=xlsx'
+
+# 2. Hoja de Vendedores (Configurada con el nuevo enlace)
+GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1vPLWxKrsnBlPYUV0-ogv65gWbdvw6N_m2kTI13r1uOU/export?format=xlsx' 
 
 # --- Configuración de la página ---
 st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
 
-# Estilos personalizados para métricas llamativas
+# Estilos personalizados
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -20,53 +23,48 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- Lógica de Procesamiento de Datos ---
+# --- Funciones de Carga de Datos ---
 @st.cache_data
-def load_and_process_sales(url):
+def load_data(url, columns_required):
+    if not url: return pd.DataFrame()
     try:
         response = requests.get(url)
         response.raise_for_status()
         df = pd.read_excel(io.BytesIO(response.content), engine='openpyxl')
-        
-        # Limpieza de nombres de columnas
         df.columns = [c.strip() for c in df.columns]
         
-        # Verificación de columnas esenciales
-        required_cols = ['Cliente', 'Venta Neta Real', 'SEMANA', 'MES']
-        if not all(col in df.columns for col in required_cols):
-            st.error(f"El archivo debe contener las columnas: {', '.join(required_cols)}")
+        if not all(col in df.columns for col in columns_required):
+            st.error(f"Faltan columnas en el archivo. Se requiere: {', '.join(columns_required)}")
+            st.info(f"Columnas detectadas: {df.columns.tolist()}")
             return pd.DataFrame()
-
-        # Convertir ventas a numérico
-        df['Venta Neta Real'] = pd.to_numeric(df['Venta Neta Real'], errors='coerce').fillna(0)
-        
-        # Estandarizar MES y SEMANA
-        df['MES'] = df['MES'].astype(str).str.upper().str.strip()
-        df['SEMANA'] = df['SEMANA'].astype(str).str.upper().str.strip()
-        
+            
         return df
     except Exception as e:
-        st.error(f"Error al procesar el archivo: {e}")
+        st.error(f"Error al cargar datos de {url}: {e}")
         return pd.DataFrame()
 
-df_sales = load_and_process_sales(GOOGLE_SALES_URL)
+# Cargar DataFrames
+df_sales = load_data(GOOGLE_SALES_URL, ['Cliente', 'Venta Neta Real', 'SEMANA', 'MES'])
+df_vend = load_data(GOOGLE_VEND_URL, ['Vendedor', 'Venta Neta Real'])
 
 # --- Título Principal ---
 st.title('📈 SaleMetric - Inteligencia de Negocios')
 st.markdown("---")
 
-# --- Barra Lateral para Parámetros de Cálculo ---
+# --- Barra Lateral ---
 st.sidebar.header("⚙️ Configuración")
-dias_mes = st.sidebar.number_input("Días de operación al mes:", min_value=1, max_value=31, value=30, help="Define cuántos días se usan para calcular el promedio diario.")
+dias_mes = st.sidebar.number_input("Días de operación al mes:", min_value=1, max_value=31, value=30)
 
-# --- Navegación de Módulos ---
-col_nav1, col_nav2, col_nav3 = st.columns(3)
+# --- Navegación (4 Columnas) ---
+col_nav1, col_nav2, col_nav3, col_nav4 = st.columns(4)
 with col_nav1:
-    btn_resumen = st.button("📊 Resumen General", use_container_width=True)
+    btn_resumen = st.button("📊 Resumen", use_container_width=True)
 with col_nav2:
-    btn_semanal = st.button("📅 Análisis Semanal", use_container_width=True)
+    btn_semanal = st.button("📅 Semanal", use_container_width=True)
 with col_nav3:
-    btn_clientes = st.button("👥 Ranking Clientes", use_container_width=True)
+    btn_clientes = st.button("👥 Clientes", use_container_width=True)
+with col_nav4:
+    btn_vendedores = st.button("👤 Vendedores", use_container_width=True)
 
 if 'modulo_activo' not in st.session_state:
     st.session_state.modulo_activo = "Resumen"
@@ -74,122 +72,76 @@ if 'modulo_activo' not in st.session_state:
 if btn_resumen: st.session_state.modulo_activo = "Resumen"
 if btn_semanal: st.session_state.modulo_activo = "Semanal"
 if btn_clientes: st.session_state.modulo_activo = "Clientes"
+if btn_vendedores: st.session_state.modulo_activo = "Vendedores"
 
 st.markdown("---")
 
-if not df_sales.empty:
+# --- MÓDULOS ---
+
+if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
+    st.subheader("Indicadores de Rendimiento Comercial")
+    resumen_mensual = df_sales.groupby('MES')['Venta Neta Real'].sum().reset_index()
+    orden_meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
+    resumen_mensual['MES'] = pd.Categorical(resumen_mensual['MES'], categories=orden_meses, ordered=True)
+    resumen_mensual = resumen_mensual.sort_values('MES')
+
+    total_acumulado = resumen_mensual['Venta Neta Real'].sum()
+    promedio_mensual = resumen_mensual['Venta Neta Real'].mean()
+    num_meses = len(resumen_mensual[resumen_mensual['Venta Neta Real'] > 0])
+    promedio_diario_global = total_acumulado / (num_meses * dias_mes) if num_meses > 0 else 0
+
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Venta Total Acumulada", f"${total_acumulado:,.0f}")
+    k2.metric("Promedio Mensual", f"${promedio_mensual:,.0f}")
+    k3.metric("Venta Promedio Diaria", f"${promedio_diario_global:,.0f}")
+
+    fig_mes = px.bar(resumen_mensual, x='MES', y='Venta Neta Real', text_auto=True, title="Ingresos Mensuales", color_discrete_sequence=['#1E88E5'])
+    fig_mes.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
+    st.plotly_chart(fig_mes, use_container_width=True)
+
+elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
+    st.subheader("Análisis Semanal")
+    mes_f = st.selectbox("Selecciona un Mes:", sorted(df_sales['MES'].unique()))
+    df_mes_f = df_sales[df_sales['MES'] == mes_f]
+    resumen_semanal = df_mes_f.groupby('SEMANA')['Venta Neta Real'].sum().reset_index().sort_values('SEMANA')
     
-    # --- MÓDULO 1: RESUMEN GENERAL ---
-    if st.session_state.modulo_activo == "Resumen":
-        st.subheader("Indicadores de Rendimiento Comercial")
+    st.plotly_chart(px.pie(resumen_semanal, values='Venta Neta Real', names='SEMANA', hole=0.4, title=f"Ventas en {mes_f}"), use_container_width=True)
+    st.dataframe(resumen_semanal.style.format({"Venta Neta Real": "${:,.0f}"}), use_container_width=True)
+
+elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
+    st.subheader("Ranking de Clientes")
+    ranking = df_sales.groupby('Cliente')['Venta Neta Real'].sum().reset_index().sort_values(by='Venta Neta Real', ascending=False)
+    st.plotly_chart(px.bar(ranking.head(15), y='Cliente', x='Venta Neta Real', orientation='h', title="Top 15 Clientes", text_auto=True), use_container_width=True)
+    st.dataframe(ranking.style.format({"Venta Neta Real": "${:,.0f}"}), use_container_width=True)
+
+elif st.session_state.modulo_activo == "Vendedores":
+    if not df_vend.empty:
+        st.subheader("Desempeño por Vendedor")
         
-        # Agrupación Mensual
-        resumen_mensual = df_sales.groupby('MES')['Venta Neta Real'].sum().reset_index()
-        orden_meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE']
-        resumen_mensual['MES'] = pd.Categorical(resumen_mensual['MES'], categories=orden_meses, ordered=True)
-        resumen_mensual = resumen_mensual.sort_values('MES')
-
-        # Cálculo de Métricas
-        total_acumulado = resumen_mensual['Venta Neta Real'].sum()
-        promedio_mensual = resumen_mensual['Venta Neta Real'].mean()
+        # Agrupar: Suma de ventas y Conteo de filas (Tickets)
+        stats_vend = df_vend.groupby('Vendedor')['Venta Neta Real'].agg(['sum', 'count']).reset_index()
+        stats_vend.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
         
-        # VENTA PROMEDIO DIARIA
-        num_meses = len(resumen_mensual[resumen_mensual['Venta Neta Real'] > 0])
-        promedio_diario_global = total_acumulado / (num_meses * dias_mes) if num_meses > 0 else 0
+        # Calcular Ticket Promedio
+        stats_vend['Ticket Promedio'] = stats_vend['Venta Total'] / stats_vend['Tickets Emitidos']
+        stats_vend = stats_vend.sort_values(by='Venta Total', ascending=False)
 
-        # Mostrar métricas principales
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Venta Total Acumulada", f"${total_acumulado:,.0f}")
-        k2.metric("Promedio Mensual", f"${promedio_mensual:,.0f}")
-        k3.metric("Venta Promedio Diaria", f"${promedio_diario_global:,.0f}")
+        # Gráfico Comparativo
+        fig_vend = px.bar(stats_vend, x='Vendedor', y='Venta Total', text_auto='.2s', title="Venta Total por Vendedor", color='Tickets Emitidos')
+        st.plotly_chart(fig_vend, use_container_width=True)
 
-        st.markdown("#### Evolución Mensual")
-        fig_mes = px.bar(
-            resumen_mensual, 
-            x='MES', 
-            y='Venta Neta Real',
-            text_auto=True,
-            title="Ingresos Consolidados por Mes",
-            color_discrete_sequence=['#1E88E5']
-        )
-        fig_mes.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
-        st.plotly_chart(fig_mes, use_container_width=True)
-
-        st.markdown("#### Detalle por Mes con Promedio Diario")
-        # Agregar columna calculada a la tabla para mayor transparencia
-        resumen_mensual['Promedio Diario'] = resumen_mensual['Venta Neta Real'] / dias_mes
-        
-        # Formato numérico para la tabla
+        # Tabla de Indicadores con formato
+        st.markdown("#### Tabla de Rendimiento")
         st.dataframe(
-            resumen_mensual.style.format({
-                "Venta Neta Real": "${:,.0f}",
-                "Promedio Diario": "${:,.0f}"
+            stats_vend.style.format({
+                "Venta Total": "${:,.0f}",
+                "Tickets Emitidos": "{:,.0f}",
+                "Ticket Promedio": "${:,.0f}"
             }),
             use_container_width=True
         )
-
-    # --- MÓDULO 2: DETALLE SEMANAL ---
-    elif st.session_state.modulo_activo == "Semanal":
-        st.subheader("Desglose por Períodos Semanales")
-        
-        meses_disponibles = sorted(df_sales['MES'].unique())
-        mes_f = st.selectbox("Selecciona un Mes para auditar:", meses_disponibles)
-        df_mes_f = df_sales[df_sales['MES'] == mes_f]
-        
-        resumen_semanal = df_mes_f.groupby('SEMANA')['Venta Neta Real'].sum().reset_index()
-        resumen_semanal = resumen_semanal.sort_values('SEMANA')
-
-        # Visualización de gráfico
-        fig_sem = px.pie(
-            resumen_semanal, 
-            values='Venta Neta Real', 
-            names='SEMANA',
-            title=f"Distribución de Ingresos - {mes_f}",
-            hole=0.4,
-            color_discrete_sequence=px.colors.sequential.Blues_r
-        )
-        fig_sem.update_traces(textinfo='percent+label', hovertemplate='Semana: %{label}<br>Venta: $%{value:,.0f}')
-        st.plotly_chart(fig_sem, use_container_width=True)
-        
-        # Tabla resumen por semana solicitada con formato
-        st.markdown(f"#### Resumen de Totales por Semana en {mes_f}")
-        st.dataframe(
-            resumen_semanal.style.format({"Venta Neta Real": "${:,.0f}"}),
-            use_container_width=True
-        )
-        
-    # --- MÓDULO 3: RANKING DE CLIENTES ---
-    elif st.session_state.modulo_activo == "Clientes":
-        st.subheader("Top Clientes por Volumen de Compra")
-        
-        # Agrupación por cliente (totalizado)
-        ranking = df_sales.groupby('Cliente')['Venta Neta Real'].sum().reset_index()
-        ranking = ranking.sort_values(by='Venta Neta Real', ascending=False)
-        
-        # Gráfico de los mejores 15
-        top_15 = ranking.head(15)
-        fig_ranking = px.bar(
-            top_15, 
-            y='Cliente', 
-            x='Venta Neta Real',
-            orientation='h',
-            title="Top 15 Clientes (Venta Neta Acumulada)",
-            text_auto=True,
-            color='Venta Neta Real',
-            color_continuous_scale='Blues'
-        )
-        fig_ranking.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
-        st.plotly_chart(fig_ranking, use_container_width=True)
-
-        # Tabla totalizada por cliente solicitada con formato
-        st.markdown("#### Tabla General de Clientes (Totalizados)")
-        st.dataframe(
-            ranking.style.format({"Venta Neta Real": "${:,.0f}"}),
-            use_container_width=True
-        )
-
-else:
-    st.warning("⚠️ Sin datos para procesar. Verifica el acceso al Google Sheet.")
+    else:
+        st.info("No se han podido cargar los datos de vendedores. Asegúrate de que el archivo tenga las columnas 'Vendedor' y 'Venta Neta Real' y que el enlace sea accesible.")
 
 st.markdown("---")
-st.caption("Stockify SaleMetric | Herramienta de Soporte a la Decisión")
+st.caption("SaleMetric | Inteligencia Comercial")
