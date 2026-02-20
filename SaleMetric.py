@@ -71,7 +71,7 @@ def load_data(url, columns_required):
 # --- Barra Lateral (Configuración y Botón de Refrescar) ---
 st.sidebar.header("⚙️ Configuración Global")
 
-# Botón para forzar actualización de datos (leer Febrero)
+# Botón para forzar actualización de datos
 if st.sidebar.button("🔄 Refrescar Datos (Actualizar Hojas)"):
     st.cache_data.clear()
     st.success("¡Memoria limpiada! Cargando datos nuevos...")
@@ -111,7 +111,6 @@ st.markdown("---")
 if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
     st.subheader("Indicadores de Rendimiento Comercial")
     
-    # Filtro de Mes en Resumen
     meses_disponibles = [m for m in ORDEN_MESES if m in df_sales['MES'].unique()]
     mes_sel = st.selectbox("Analizar periodo:", ["TODOS LOS MESES"] + meses_disponibles)
     
@@ -122,7 +121,6 @@ if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
         df_resumen = df_sales[df_sales['MES'] == mes_sel]
         num_meses_activos = 1
     
-    # Métricas principales
     total_acumulado = df_resumen['VENTA NETA REAL'].sum()
     promedio_mensual = df_sales.groupby('MES')['VENTA NETA REAL'].sum().mean()
     promedio_diario = total_acumulado / (num_meses_activos * dias_mes)
@@ -132,7 +130,6 @@ if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
     k2.metric("Promedio Mensual (General)", f"${promedio_mensual:,.0f}")
     k3.metric("Venta Promedio Diaria", f"${promedio_diario:,.0f}")
 
-    # Evolución Mensual Cronológica
     resumen_mensual = df_sales.groupby('MES')['VENTA NETA REAL'].sum().reset_index()
     resumen_mensual['MES'] = pd.Categorical(resumen_mensual['MES'], categories=ORDEN_MESES, ordered=True)
     resumen_mensual = resumen_mensual.sort_values('MES').dropna(subset=['VENTA NETA REAL'])
@@ -148,8 +145,6 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     mes_f = st.selectbox("Selecciona un Mes:", meses_disponibles, key="sem_mes")
     
     df_mes_f = df_sales[df_sales['MES'] == mes_f]
-    
-    # Campo para visualizar el monto de ventas totales del mes seleccionado
     total_mes_seleccionado = df_mes_f['VENTA NETA REAL'].sum()
     st.metric(f"Venta Total de {mes_f}", f"${total_mes_seleccionado:,.0f}")
     
@@ -159,16 +154,14 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     st.markdown("#### Totales por Semana")
     st.dataframe(resumen_semanal.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
 
-# 3. RANKING DE CLIENTES (ACTUALIZADO CON FILTRO POR MES)
+# 3. RANKING DE CLIENTES
 elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     st.subheader("Ranking de Clientes")
     
-    # Filtro dinámico por Mes o Global
     meses_cli = [m for m in ORDEN_MESES if m in df_sales['MES'].unique()]
     opciones_mes = ["GLOBAL"] + meses_cli
-    mes_c_sel = st.selectbox("Selecciona el Mes para el análisis de clientes:", opciones_mes, key="cli_mes")
+    mes_c_sel = st.selectbox("Selecciona el Periodo:", opciones_mes, key="cli_mes")
     
-    # Lógica de filtrado
     if mes_c_sel == "GLOBAL":
         df_cli_filt = df_sales
         label_total = "Venta Total Global"
@@ -176,14 +169,11 @@ elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
         df_cli_filt = df_sales[df_sales['MES'] == mes_c_sel]
         label_total = f"Venta Total en {mes_c_sel}"
         
-    # Card de Venta Total del Periodo
     monto_total_cli = df_cli_filt['VENTA NETA REAL'].sum()
     st.metric(label_total, f"${monto_total_cli:,.0f}")
     
-    # Agrupación por cliente
     ranking = df_cli_filt.groupby('CLIENTE')['VENTA NETA REAL'].sum().reset_index().sort_values(by='VENTA NETA REAL', ascending=False)
     
-    # Gráfico de Barras Horizontal
     fig_cli = px.bar(
         ranking.head(15), 
         y='CLIENTE', 
@@ -198,7 +188,6 @@ elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     fig_cli.update_layout(yaxis={'categoryorder':'total ascending'})
     st.plotly_chart(fig_cli, use_container_width=True)
     
-    # Tabla General Detallada
     st.markdown(f"#### Detalle de Clientes - {mes_c_sel}")
     st.dataframe(ranking.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
 
@@ -206,9 +195,21 @@ elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
 elif st.session_state.modulo_activo == "Vendedores":
     if not df_vend.empty:
         st.subheader("Desempeño por Vendedor")
+        
+        # Filtro dinámico por Mes o Global
         meses_v = [m for m in ORDEN_MESES if m in df_vend['MES'].unique()]
-        mes_v_sel = st.selectbox("Selecciona el Mes:", meses_v, key="vend_mes")
-        df_v_filt = df_vend[df_vend['MES'] == mes_v_sel]
+        opciones_v = ["GLOBAL"] + meses_v
+        mes_v_sel = st.selectbox("Selecciona el Periodo:", opciones_v, key="vend_mes")
+        
+        if mes_v_sel == "GLOBAL":
+            df_v_filt = df_vend
+            label_v = "Venta Total Global (Vendedores)"
+        else:
+            df_v_filt = df_vend[df_vend['MES'] == mes_v_sel]
+            label_v = f"Venta Total en {mes_v_sel}"
+            
+        monto_v = df_v_filt['VENTA NETA REAL'].sum()
+        st.metric(label_v, f"${monto_v:,.0f}")
         
         if not df_v_filt.empty:
             stats_v = df_v_filt.groupby('VENDEDOR').agg({'VENTA NETA REAL': 'sum', 'DOCUMENTO': 'count'}).reset_index()
@@ -229,15 +230,36 @@ elif st.session_state.modulo_activo == "Vendedores":
 elif st.session_state.modulo_activo == "Productos":
     if not df_prod.empty:
         st.subheader("Análisis de Ventas por Producto")
+        
+        # Filtro dinámico por Mes o Global
         meses_p = [m for m in ORDEN_MESES if m in df_prod['MES'].unique()]
-        mes_p_sel = st.selectbox("Selecciona el Mes:", meses_p, key="prod_mes")
-        df_p_filt = df_prod[df_prod['MES'] == mes_p_sel].copy()
+        opciones_p = ["GLOBAL"] + meses_p
+        mes_p_sel = st.selectbox("Selecciona el Periodo:", opciones_p, key="prod_mes")
+        
+        if mes_p_sel == "GLOBAL":
+            df_p_filt = df_prod
+            label_p = "Venta Total Global (Productos)"
+        else:
+            df_p_filt = df_prod[df_prod['MES'] == mes_p_sel]
+            label_p = f"Venta Total en {mes_p_sel}"
+
+        monto_p = df_p_filt['TOTAL VENTA'].sum()
+        st.metric(label_p, f"${monto_p:,.0f}")
         
         if not df_p_filt.empty:
             stats_p = df_p_filt.groupby('PRODUCTO').agg({'UNIDADES': 'sum', 'TOTAL VENTA': 'sum'}).reset_index()
             stats_p = stats_p.sort_values(by='TOTAL VENTA', ascending=False)
 
-            fig_p = px.bar(stats_p.head(15), x='TOTAL VENTA', y='PRODUCTO', orientation='h', text_auto=True, title=f"Top 15 Productos - {mes_p_sel}", color='UNIDADES', color_continuous_scale='Viridis')
+            fig_p = px.bar(
+                stats_p.head(15), 
+                x='TOTAL VENTA', 
+                y='PRODUCTO', 
+                orientation='h', 
+                text_auto=True, 
+                title=f"Top 15 Productos - {mes_p_sel}", 
+                color='UNIDADES', 
+                color_continuous_scale='Viridis'
+            )
             fig_p.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
             fig_p.update_layout(yaxis={'categoryorder':'total ascending'})
             st.plotly_chart(fig_p, use_container_width=True)
