@@ -149,7 +149,7 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     
     df_mes_f = df_sales[df_sales['MES'] == mes_f]
     
-    # NUEVO: Campo para visualizar el monto de ventas totales del mes seleccionado
+    # Campo para visualizar el monto de ventas totales del mes seleccionado
     total_mes_seleccionado = df_mes_f['VENTA NETA REAL'].sum()
     st.metric(f"Venta Total de {mes_f}", f"${total_mes_seleccionado:,.0f}")
     
@@ -159,15 +159,47 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     st.markdown("#### Totales por Semana")
     st.dataframe(resumen_semanal.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
 
-# 3. RANKING DE CLIENTES
+# 3. RANKING DE CLIENTES (ACTUALIZADO CON FILTRO POR MES)
 elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     st.subheader("Ranking de Clientes")
-    ranking = df_sales.groupby('CLIENTE')['VENTA NETA REAL'].sum().reset_index().sort_values(by='VENTA NETA REAL', ascending=False)
     
-    fig_cli = px.bar(ranking.head(15), y='CLIENTE', x='VENTA NETA REAL', orientation='h', title="Top 15 Clientes", text_auto=True)
+    # Filtro dinámico por Mes o Global
+    meses_cli = [m for m in ORDEN_MESES if m in df_sales['MES'].unique()]
+    opciones_mes = ["GLOBAL"] + meses_cli
+    mes_c_sel = st.selectbox("Selecciona el Mes para el análisis de clientes:", opciones_mes, key="cli_mes")
+    
+    # Lógica de filtrado
+    if mes_c_sel == "GLOBAL":
+        df_cli_filt = df_sales
+        label_total = "Venta Total Global"
+    else:
+        df_cli_filt = df_sales[df_sales['MES'] == mes_c_sel]
+        label_total = f"Venta Total en {mes_c_sel}"
+        
+    # Card de Venta Total del Periodo
+    monto_total_cli = df_cli_filt['VENTA NETA REAL'].sum()
+    st.metric(label_total, f"${monto_total_cli:,.0f}")
+    
+    # Agrupación por cliente
+    ranking = df_cli_filt.groupby('CLIENTE')['VENTA NETA REAL'].sum().reset_index().sort_values(by='VENTA NETA REAL', ascending=False)
+    
+    # Gráfico de Barras Horizontal
+    fig_cli = px.bar(
+        ranking.head(15), 
+        y='CLIENTE', 
+        x='VENTA NETA REAL', 
+        orientation='h', 
+        title=f"Top 15 Clientes ({mes_c_sel})", 
+        text_auto=True,
+        color='VENTA NETA REAL',
+        color_continuous_scale='Blues'
+    )
     fig_cli.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
     fig_cli.update_layout(yaxis={'categoryorder':'total ascending'})
     st.plotly_chart(fig_cli, use_container_width=True)
+    
+    # Tabla General Detallada
+    st.markdown(f"#### Detalle de Clientes - {mes_c_sel}")
     st.dataframe(ranking.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
 
 # 4. DESEMPEÑO POR VENDEDOR
