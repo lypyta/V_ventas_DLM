@@ -5,8 +5,11 @@ import io
 import requests
 
 # --- Configuración de las URLs de Google Drive ---
+# 1. Hoja de Ventas General
 GOOGLE_SALES_URL = 'https://docs.google.com/spreadsheets/d/1UNXW4LFYfc-P4eO-wVkav9FCSZtwC2Rw00cHZOQY5DI/export?format=xlsx'
-GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1vPLWxKrsnBlPYUV0-ogv65gWbdvw6N_m2kTI13r1uOU/export?format=xlsx' 
+
+# 2. Hoja de Vendedores (URL Actualizada)
+GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1SlUysxWzTF1zL441076J3-Av1DZpOEqAt_MkUBAReo0/export?format=xlsx' 
 
 # --- Configuración de la página ---
 st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
