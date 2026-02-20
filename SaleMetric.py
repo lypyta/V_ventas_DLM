@@ -203,4 +203,4 @@ elif st.session_state.modulo_activo == "Productos":
 
 st.markdown("---")
 st.caption("SaleMetric | Inteligencia de Negocios")
-```
+
