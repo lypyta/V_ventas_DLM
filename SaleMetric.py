@@ -8,12 +8,16 @@ import requests
 # 1. Hoja de Ventas General
 GOOGLE_SALES_URL = 'https://docs.google.com/spreadsheets/d/1UNXW4LFYfc-P4eO-wVkav9FCSZtwC2Rw00cHZOQY5DI/export?format=xlsx'
 
-# 2. Hoja de Vendedores (URL Actualizada)
+# 2. Hoja de Vendedores
 GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1SlUysxWzTF1zL441076J3-Av1DZpOEqAt_MkUBAReo0/export?format=xlsx' 
+
+# 3. Hoja de Productos (URL Actualizada)
+GOOGLE_PROD_URL = 'https://docs.google.com/spreadsheets/d/1v8-YlcX6kuXEjPndqgIj6itGPKmG5tyL_ud5exORebI/export?format=xlsx' 
 
 # --- Configuración de la página ---
 st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
 
+# Estilos personalizados para métricas y legibilidad
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -22,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- Función de Carga de Datos Mejorada ---
+# --- Funciones de Carga de Datos Inteligente ---
 @st.cache_data
 def load_data(url, columns_required):
     if not url: return pd.DataFrame()
@@ -31,34 +35,24 @@ def load_data(url, columns_required):
         response.raise_for_status()
         content = io.BytesIO(response.content)
         
-        # Leemos las primeras 20 filas para encontrar el encabezado real
+        # Escaneamos las primeras 20 filas para encontrar el encabezado real
         df_scan = pd.read_excel(content, engine='openpyxl', header=None, nrows=20)
         
         header_row = 0
-        found = False
         req_upper = [c.upper() for c in columns_required]
         
         for i, row in df_scan.iterrows():
-            # Limpiamos los valores de la fila actual para comparar
             row_values = [str(val).strip().upper() for val in row.values if pd.notna(val)]
-            
-            # Verificamos si TODAS las columnas requeridas están en esta fila
             if all(col in row_values for col in req_upper):
                 header_row = i
-                found = True
                 break
         
-        # Volvemos a leer desde la fila detectada
         content.seek(0)
         df = pd.read_excel(content, engine='openpyxl', header=header_row)
-        
-        # Limpiar nombres de columnas de espacios invisibles
         df.columns = [str(c).strip() for c in df.columns]
         
-        # Verificación final de seguridad
         if not all(col in df.columns for col in columns_required):
-            st.error(f"Error: No se encontró la fila de encabezados correcta.")
-            st.info(f"Columnas detectadas en la fila {header_row + 1}: {df.columns.tolist()}")
+            st.error(f"Faltan columnas en el archivo de {url}.")
             return pd.DataFrame()
             
         return df
@@ -67,34 +61,38 @@ def load_data(url, columns_required):
         return pd.DataFrame()
 
 # Cargar DataFrames
-# Actualizamos df_vend para que también pida la columna 'MES'
 df_sales = load_data(GOOGLE_SALES_URL, ['Cliente', 'Venta Neta Real', 'SEMANA', 'MES'])
 df_vend = load_data(GOOGLE_VEND_URL, ['Vendedor', 'Documento', 'Venta Neta Real', 'MES'])
+df_prod = load_data(GOOGLE_PROD_URL, ['PRODUCTO', 'UNIDADES', 'TOTAL VENTA', 'MES'])
 
 # --- Título ---
 st.title('📈 SaleMetric - Inteligencia de Negocios')
 st.markdown("---")
 
 # --- Barra Lateral ---
-st.sidebar.header("⚙️ Configuración")
+st.sidebar.header("⚙️ Configuración Global")
 dias_mes = st.sidebar.number_input("Días de operación al mes:", min_value=1, value=30)
 
-# --- Navegación ---
-col_nav1, col_nav2, col_nav3, col_nav4 = st.columns(4)
+# --- Navegación (5 Botones) ---
+col_nav1, col_nav2, col_nav3, col_nav4, col_nav5 = st.columns(5)
 with col_nav1: btn_resumen = st.button("📊 Resumen", use_container_width=True)
 with col_nav2: btn_semanal = st.button("📅 Semanal", use_container_width=True)
 with col_nav3: btn_clientes = st.button("👥 Clientes", use_container_width=True)
 with col_nav4: btn_vendedores = st.button("👤 Vendedores", use_container_width=True)
+with col_nav5: btn_productos = st.button("📦 Productos", use_container_width=True)
 
 if 'modulo_activo' not in st.session_state: st.session_state.modulo_activo = "Resumen"
 if btn_resumen: st.session_state.modulo_activo = "Resumen"
 if btn_semanal: st.session_state.modulo_activo = "Semanal"
 if btn_clientes: st.session_state.modulo_activo = "Clientes"
 if btn_vendedores: st.session_state.modulo_activo = "Vendedores"
+if btn_productos: st.session_state.modulo_activo = "Productos"
 
 st.markdown("---")
 
 # --- Módulos ---
+
+# 1. RESUMEN GENERAL
 if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
     st.subheader("Indicadores de Rendimiento Comercial")
     resumen_mensual = df_sales.groupby('MES')['Venta Neta Real'].sum().reset_index()
@@ -112,64 +110,96 @@ if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
     k2.metric("Promedio Mensual", f"${promedio_mensual:,.0f}")
     k3.metric("Venta Promedio Diaria", f"${promedio_diario_global:,.0f}")
 
-    fig_mes = px.bar(resumen_mensual, x='MES', y='Venta Neta Real', text_auto=True, title="Ingresos Mensuales")
+    fig_mes = px.bar(resumen_mensual, x='MES', y='Venta Neta Real', text_auto=True, title="Ingresos Mensuales", color_discrete_sequence=['#1E88E5'])
     fig_mes.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
     st.plotly_chart(fig_mes, use_container_width=True)
 
+# 2. ANÁLISIS SEMANAL
 elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     st.subheader("Análisis Semanal")
-    mes_f = st.selectbox("Selecciona un Mes:", sorted(df_sales['MES'].unique()))
+    mes_f = st.selectbox("Selecciona un Mes:", sorted(df_sales['MES'].unique()), key="sem_mes")
     df_mes_f = df_sales[df_sales['MES'] == mes_f]
-    resumen_semanal = df_mes_f.groupby('SEMANA')['Venta Neta Real'].sum().reset_index()
+    resumen_semanal = df_mes_f.groupby('SEMANA')['Venta Neta Real'].sum().reset_index().sort_values('SEMANA')
+    
     st.plotly_chart(px.pie(resumen_semanal, values='Venta Neta Real', names='SEMANA', hole=0.4, title=f"Ventas en {mes_f}"), use_container_width=True)
     st.dataframe(resumen_semanal.style.format({"Venta Neta Real": "${:,.0f}"}), use_container_width=True)
 
+# 3. RANKING DE CLIENTES
 elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     st.subheader("Ranking de Clientes")
     ranking = df_sales.groupby('Cliente')['Venta Neta Real'].sum().reset_index().sort_values(by='Venta Neta Real', ascending=False)
     st.plotly_chart(px.bar(ranking.head(15), y='Cliente', x='Venta Neta Real', orientation='h', title="Top 15 Clientes", text_auto=True), use_container_width=True)
     st.dataframe(ranking.style.format({"Venta Neta Real": "${:,.0f}"}), use_container_width=True)
 
+# 4. DESEMPEÑO POR VENDEDOR
 elif st.session_state.modulo_activo == "Vendedores":
     if not df_vend.empty:
         st.subheader("Desempeño por Vendedor")
-        
-        # Filtro de Mes para Vendedores
         df_vend['MES'] = df_vend['MES'].astype(str).str.upper()
-        meses_v = sorted(df_vend['MES'].unique())
-        mes_seleccionado = st.selectbox("Selecciona el Mes para el análisis de vendedores:", meses_v)
+        mes_v_sel = st.selectbox("Selecciona el Mes:", sorted(df_vend['MES'].unique()), key="vend_mes")
+        df_v_filt = df_vend[df_vend['MES'] == mes_v_sel]
         
-        # Filtrar datos por el mes seleccionado
-        df_vend_filtrado = df_vend[df_vend['MES'] == mes_seleccionado]
+        if not df_v_filt.empty:
+            stats_v = df_v_filt.groupby('Vendedor').agg({'Venta Neta Real': 'sum', 'Documento': 'count'}).reset_index()
+            stats_v.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
+            stats_v['Ticket Promedio'] = stats_v['Venta Total'] / stats_v['Tickets Emitidos']
+            stats_v = stats_v.sort_values(by='Venta Total', ascending=False)
+
+            fig_v = px.bar(stats_v, x='Vendedor', y='Venta Total', text_auto=True, title=f"Venta por Vendedor - {mes_v_sel}")
+            fig_v.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
+            st.plotly_chart(fig_v, use_container_width=True)
+            st.dataframe(stats_v.style.format({"Venta Total": "${:,.0f}", "Tickets Emitidos": "{:,.0f}", "Ticket Promedio": "${:,.0f}"}), use_container_width=True)
+        else:
+            st.warning(f"Sin datos de vendedores para {mes_v_sel}.")
+    else:
+        st.warning("⚠️ No se detectaron datos de vendedores.")
+
+# 5. ANÁLISIS DE PRODUCTOS (NUEVO)
+elif st.session_state.modulo_activo == "Productos":
+    if not df_prod.empty:
+        st.subheader("Análisis de Ventas por Producto")
         
-        if not df_vend_filtrado.empty:
-            # Agrupamos y calculamos Tickets (conteo de filas) y Venta Total
-            stats_vend = df_vend_filtrado.groupby('Vendedor').agg({
-                'Venta Neta Real': 'sum',
-                'Documento': 'count'
+        # Filtro de Mes
+        df_prod['MES'] = df_prod['MES'].astype(str).str.upper()
+        mes_p_sel = st.selectbox("Selecciona el Mes para el análisis de productos:", sorted(df_prod['MES'].unique()), key="prod_mes")
+        df_p_filt = df_prod[df_prod['MES'] == mes_p_sel].copy()
+        
+        if not df_p_filt.empty:
+            # AGRUPACIÓN Y UNIFICACIÓN
+            stats_p = df_p_filt.groupby('PRODUCTO').agg({
+                'UNIDADES': 'sum',
+                'TOTAL VENTA': 'sum'
             }).reset_index()
             
-            stats_vend.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
-            stats_vend['Ticket Promedio'] = stats_vend['Venta Total'] / stats_vend['Tickets Emitidos']
-            stats_vend = stats_vend.sort_values(by='Venta Total', ascending=False)
+            stats_p = stats_p.sort_values(by='TOTAL VENTA', ascending=False)
 
-            fig_vend = px.bar(stats_vend, x='Vendedor', y='Venta Total', text_auto=True, 
-                             title=f"Venta por Vendedor - {mes_seleccionado}", color='Tickets Emitidos')
-            fig_vend.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
-            st.plotly_chart(fig_vend, use_container_width=True)
+            # Visualización: Top Productos por Ingresos
+            fig_p = px.bar(
+                stats_p.head(15), 
+                x='TOTAL VENTA', 
+                y='PRODUCTO', 
+                orientation='h',
+                text_auto=True,
+                title=f"Top 15 Productos por Ingresos - {mes_p_sel}",
+                color='UNIDADES',
+                color_continuous_scale='Viridis'
+            )
+            fig_p.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
+            st.plotly_chart(fig_p, use_container_width=True)
 
+            # Tabla Detallada
+            st.markdown("#### Detalle Unificado de Productos")
             st.dataframe(
-                stats_vend.style.format({
-                    "Venta Total": "${:,.0f}",
-                    "Tickets Emitidos": "{:,.0f}",
-                    "Ticket Promedio": "${:,.0f}"
+                stats_p.style.format({
+                    "UNIDADES": "{:,.0f}",
+                    "TOTAL VENTA": "${:,.0f}"
                 }),
                 use_container_width=True
             )
         else:
-            st.warning(f"No hay datos de vendedores para el mes de {mes_seleccionado}.")
+            st.warning(f"Sin registros de productos para {mes_p_sel}.")
     else:
-        st.warning("⚠️ No se pudieron cargar los datos de vendedores. Revisa la estructura del archivo.")
+        st.info("💡 Asegúrate de que el archivo de Productos tenga las columnas: 'PRODUCTO', 'UNIDADES', 'TOTAL VENTA' y 'MES'.")
 
 st.markdown("---")
 st.caption("SaleMetric | Inteligencia de Negocios")
