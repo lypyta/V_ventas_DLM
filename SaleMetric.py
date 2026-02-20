@@ -67,8 +67,9 @@ def load_data(url, columns_required):
         return pd.DataFrame()
 
 # Cargar DataFrames
+# Actualizamos df_vend para que también pida la columna 'MES'
 df_sales = load_data(GOOGLE_SALES_URL, ['Cliente', 'Venta Neta Real', 'SEMANA', 'MES'])
-df_vend = load_data(GOOGLE_VEND_URL, ['Vendedor', 'Documento', 'Venta Neta Real'])
+df_vend = load_data(GOOGLE_VEND_URL, ['Vendedor', 'Documento', 'Venta Neta Real', 'MES'])
 
 # --- Título ---
 st.title('📈 SaleMetric - Inteligencia de Negocios')
@@ -133,28 +134,40 @@ elif st.session_state.modulo_activo == "Vendedores":
     if not df_vend.empty:
         st.subheader("Desempeño por Vendedor")
         
-        # Agrupamos y calculamos Tickets (conteo de filas) y Venta Total
-        stats_vend = df_vend.groupby('Vendedor').agg({
-            'Venta Neta Real': 'sum',
-            'Documento': 'count'
-        }).reset_index()
+        # Filtro de Mes para Vendedores
+        df_vend['MES'] = df_vend['MES'].astype(str).str.upper()
+        meses_v = sorted(df_vend['MES'].unique())
+        mes_seleccionado = st.selectbox("Selecciona el Mes para el análisis de vendedores:", meses_v)
         
-        stats_vend.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
-        stats_vend['Ticket Promedio'] = stats_vend['Venta Total'] / stats_vend['Tickets Emitidos']
-        stats_vend = stats_vend.sort_values(by='Venta Total', ascending=False)
+        # Filtrar datos por el mes seleccionado
+        df_vend_filtrado = df_vend[df_vend['MES'] == mes_seleccionado]
+        
+        if not df_vend_filtrado.empty:
+            # Agrupamos y calculamos Tickets (conteo de filas) y Venta Total
+            stats_vend = df_vend_filtrado.groupby('Vendedor').agg({
+                'Venta Neta Real': 'sum',
+                'Documento': 'count'
+            }).reset_index()
+            
+            stats_vend.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
+            stats_vend['Ticket Promedio'] = stats_vend['Venta Total'] / stats_vend['Tickets Emitidos']
+            stats_vend = stats_vend.sort_values(by='Venta Total', ascending=False)
 
-        fig_vend = px.bar(stats_vend, x='Vendedor', y='Venta Total', text_auto=True, title="Venta por Vendedor", color='Tickets Emitidos')
-        fig_vend.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
-        st.plotly_chart(fig_vend, use_container_width=True)
+            fig_vend = px.bar(stats_vend, x='Vendedor', y='Venta Total', text_auto=True, 
+                             title=f"Venta por Vendedor - {mes_seleccionado}", color='Tickets Emitidos')
+            fig_vend.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
+            st.plotly_chart(fig_vend, use_container_width=True)
 
-        st.dataframe(
-            stats_vend.style.format({
-                "Venta Total": "${:,.0f}",
-                "Tickets Emitidos": "{:,.0f}",
-                "Ticket Promedio": "${:,.0f}"
-            }),
-            use_container_width=True
-        )
+            st.dataframe(
+                stats_vend.style.format({
+                    "Venta Total": "${:,.0f}",
+                    "Tickets Emitidos": "{:,.0f}",
+                    "Ticket Promedio": "${:,.0f}"
+                }),
+                use_container_width=True
+            )
+        else:
+            st.warning(f"No hay datos de vendedores para el mes de {mes_seleccionado}.")
     else:
         st.warning("⚠️ No se pudieron cargar los datos de vendedores. Revisa la estructura del archivo.")
 
