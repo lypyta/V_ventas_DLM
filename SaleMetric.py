@@ -130,11 +130,15 @@ if st.session_state.modulo_activo == "Resumen" and not df_sales.empty:
     k2.metric("Promedio Mensual (General)", f"${promedio_mensual:,.0f}")
     k3.metric("Venta Promedio Diaria", f"${promedio_diario:,.0f}")
 
-    resumen_mensual = df_sales.groupby('MES')['VENTA NETA REAL'].sum().reset_index()
-    resumen_mensual['MES'] = pd.Categorical(resumen_mensual['MES'], categories=ORDEN_MESES, ordered=True)
-    resumen_mensual = resumen_mensual.sort_values('MES').dropna(subset=['VENTA NETA REAL'])
+    # Tabla de Ventas por Mes solicitada
+    st.markdown("#### Detalle de Ventas Mensuales")
+    resumen_tabla = df_sales.groupby('MES')['VENTA NETA REAL'].sum().reset_index()
+    resumen_tabla['MES'] = pd.Categorical(resumen_tabla['MES'], categories=ORDEN_MESES, ordered=True)
+    resumen_tabla = resumen_tabla.sort_values('MES').dropna(subset=['VENTA NETA REAL'])
+    st.dataframe(resumen_tabla.style.format({"VENTA NETA REAL": "${:,.0f}"}), hide_index=True, use_container_width=True)
 
-    fig_mes = px.bar(resumen_mensual, x='MES', y='VENTA NETA REAL', text_auto=True, title="Evolución de Ingresos Mensuales", color_discrete_sequence=['#1E88E5'])
+    # Gráfico de Evolución Mensual
+    fig_mes = px.bar(resumen_tabla, x='MES', y='VENTA NETA REAL', text_auto=True, title="Evolución de Ingresos Mensuales", color_discrete_sequence=['#1E88E5'])
     fig_mes.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
     st.plotly_chart(fig_mes, use_container_width=True)
 
@@ -152,7 +156,7 @@ elif st.session_state.modulo_activo == "Semanal" and not df_sales.empty:
     
     st.plotly_chart(px.pie(resumen_semanal, values='VENTA NETA REAL', names='SEMANA', hole=0.4, title=f"Distribución de Ventas en {mes_f}"), use_container_width=True)
     st.markdown("#### Totales por Semana")
-    st.dataframe(resumen_semanal.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
+    st.dataframe(resumen_semanal.style.format({"VENTA NETA REAL": "${:,.0f}"}), hide_index=True, use_container_width=True)
 
 # 3. RANKING DE CLIENTES
 elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
@@ -174,6 +178,9 @@ elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     
     ranking = df_cli_filt.groupby('CLIENTE')['VENTA NETA REAL'].sum().reset_index().sort_values(by='VENTA NETA REAL', ascending=False)
     
+    # Agregar columna de Ranking Numérico (1 a X)
+    ranking.insert(0, 'RANKING', range(1, 1 + len(ranking)))
+    
     fig_cli = px.bar(
         ranking.head(15), 
         y='CLIENTE', 
@@ -189,7 +196,7 @@ elif st.session_state.modulo_activo == "Clientes" and not df_sales.empty:
     st.plotly_chart(fig_cli, use_container_width=True)
     
     st.markdown(f"#### Detalle de Clientes - {mes_c_sel}")
-    st.dataframe(ranking.style.format({"VENTA NETA REAL": "${:,.0f}"}), use_container_width=True)
+    st.dataframe(ranking.style.format({"VENTA NETA REAL": "${:,.0f}"}), hide_index=True, use_container_width=True)
 
 # 4. DESEMPEÑO POR VENDEDOR
 elif st.session_state.modulo_activo == "Vendedores":
@@ -216,11 +223,14 @@ elif st.session_state.modulo_activo == "Vendedores":
             stats_v.columns = ['Vendedor', 'Venta Total', 'Tickets Emitidos']
             stats_v['Ticket Promedio'] = stats_v['Venta Total'] / stats_v['Tickets Emitidos']
             stats_v = stats_v.sort_values(by='Venta Total', ascending=False)
+            
+            # Ranking Numérico para Vendedores
+            stats_v.insert(0, 'RANKING', range(1, 1 + len(stats_v)))
 
             fig_v = px.bar(stats_v, x='Vendedor', y='Venta Total', text_auto=True, title=f"Venta por Vendedor - {mes_v_sel}", color='Tickets Emitidos')
             fig_v.update_traces(texttemplate='$%{y:,.0f}', textposition='outside')
             st.plotly_chart(fig_v, use_container_width=True)
-            st.dataframe(stats_v.style.format({"Venta Total": "${:,.0f}", "Tickets Emitidos": "{:,.0f}", "Ticket Promedio": "${:,.0f}"}), use_container_width=True)
+            st.dataframe(stats_v.style.format({"Venta Total": "${:,.0f}", "Tickets Emitidos": "{:,.0f}", "Ticket Promedio": "${:,.0f}"}), hide_index=True, use_container_width=True)
         else:
             st.warning(f"Sin datos registrados para {mes_v_sel}.")
     else:
@@ -249,6 +259,9 @@ elif st.session_state.modulo_activo == "Productos":
         if not df_p_filt.empty:
             stats_p = df_p_filt.groupby('PRODUCTO').agg({'UNIDADES': 'sum', 'TOTAL VENTA': 'sum'}).reset_index()
             stats_p = stats_p.sort_values(by='TOTAL VENTA', ascending=False)
+            
+            # Agregar columna de Ranking Numérico (1 a X)
+            stats_p.insert(0, 'RANKING', range(1, 1 + len(stats_p)))
 
             fig_p = px.bar(
                 stats_p.head(15), 
@@ -263,7 +276,7 @@ elif st.session_state.modulo_activo == "Productos":
             fig_p.update_traces(texttemplate='$%{x:,.0f}', textposition='outside')
             fig_p.update_layout(yaxis={'categoryorder':'total ascending'})
             st.plotly_chart(fig_p, use_container_width=True)
-            st.dataframe(stats_p.style.format({"UNIDADES": "{:,.0f}", "TOTAL VENTA": "${:,.0f}"}), use_container_width=True)
+            st.dataframe(stats_p.style.format({"UNIDADES": "{:,.0f}", "TOTAL VENTA": "${:,.0f}"}), hide_index=True, use_container_width=True)
         else:
             st.warning(f"Sin registros de productos para {mes_p_sel}.")
 
