@@ -13,7 +13,7 @@ GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1SlUysxWzTF1zL441076J3
 GOOGLE_PROD_URL = 'https://docs.google.com/spreadsheets/d/1v8-YlcX6kuXEjPndqgIj6itGPKmG5tyL_ud5exORebI/export?format=xlsx' 
 
 # --- Configuración de la página ---
-st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence  17777", page_icon="📈")
+st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
 
 # Estilos personalizados para métricas y legibilidad
 st.markdown("""
@@ -85,7 +85,7 @@ df_vend = load_data(GOOGLE_VEND_URL, ['VENDEDOR', 'DOCUMENTO', 'VENTA NETA REAL'
 df_prod = load_data(GOOGLE_PROD_URL, ['PRODUCTO', 'UNIDADES', 'TOTAL VENTA', 'MES'])
 
 # --- Título ---
-st.title('📈 SaleMetric - Inteligencia de Negocios')
+st.title('📈 SaleMetric - Inteligencia de Negocios -Actualizado al 15/02/2026 ')
 st.markdown("---")
 
 # --- Navegación (5 Botones) ---
