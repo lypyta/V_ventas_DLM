@@ -13,7 +13,7 @@ GOOGLE_VEND_URL = 'https://docs.google.com/spreadsheets/d/1SlUysxWzTF1zL441076J3
 GOOGLE_PROD_URL = 'https://docs.google.com/spreadsheets/d/1v8-YlcX6kuXEjPndqgIj6itGPKmG5tyL_ud5exORebI/export?format=xlsx' 
 
 # --- Configuración de la página ---
-st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence", page_icon="📈")
+st.set_page_config(layout="wide", page_title="SaleMetric | Business Intelligence  17777", page_icon="📈")
 
 # Estilos personalizados para métricas y legibilidad
 st.markdown("""
