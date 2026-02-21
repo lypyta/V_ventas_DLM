@@ -84,8 +84,8 @@ df_sales = load_data(GOOGLE_SALES_URL, ['CLIENTE', 'VENTA NETA REAL', 'SEMANA', 
 df_vend = load_data(GOOGLE_VEND_URL, ['VENDEDOR', 'DOCUMENTO', 'VENTA NETA REAL', 'MES'])
 df_prod = load_data(GOOGLE_PROD_URL, ['PRODUCTO', 'UNIDADES', 'TOTAL VENTA', 'MES'])
 
-# --- Título ---
-st.title('📈 SaleMetric - Inteligencia de Negocios -Actualizado al 15/02/2026 ')
+# -------------------- Título -----------------------
+st.title('📈 Metricas de venta - Actualizado al 15/02/2026 ')
 st.markdown("---")
 
 # --- Navegación (5 Botones) ---
