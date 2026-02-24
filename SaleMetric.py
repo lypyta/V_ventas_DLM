@@ -85,7 +85,7 @@ df_vend = load_data(GOOGLE_VEND_URL, ['VENDEDOR', 'DOCUMENTO', 'VENTA NETA REAL'
 df_prod = load_data(GOOGLE_PROD_URL, ['PRODUCTO', 'UNIDADES', 'TOTAL VENTA', 'MES'])
 
 # -------------------- Título -----------------------
-st.title('📈 Metricas de venta - Actualizado al 15/02/2026 ')
+st.title('📈 Metricas de venta - Actualizado al 22/02/2026 ')
 st.markdown("---")
 
 # --- Navegación (5 Botones) ---
